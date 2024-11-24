@@ -1,7 +1,5 @@
 package proj.seb.sibiti
 
-import android.app.ActivityManager
-import android.app.AlertDialog
 import android.content.Context
 import android.media.AudioManager
 import android.os.Build
@@ -9,76 +7,47 @@ import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
+import androidx.annotation.NonNull
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
-import androidx.annotation.NonNull
+import android.database.ContentObserver
 
 class MainActivity : FlutterActivity() {
-    private val LOCK_TASK_CHANNEL = "proj.seb.sibiti/locktask"
-    private val AUDIO_CHANNEL = "proj.seb.sibiti/audio"
+
+    companion object {
+        private const val LOCK_TASK_CHANNEL = "proj.seb.sibiti/locktask"
+        private const val AUDIO_CHANNEL = "proj.seb.sibiti/audio"
+    }
+
+    private val volumeObserver = object : ContentObserver(null) {
+        override fun onChange(selfChange: Boolean) {
+            setAudioToSpeaker()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        keepScreenOn()
-        startLockTaskMode()
-        lockScreenshot(true)
-        enableImmersiveMode()
+        applyInitialSettings()
+        registerVolumeObserver()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterVolumeObserver()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (!hasFocus) {
-            showReturnToLockTaskDialog()
-        } else {
-            enableImmersiveMode()
-        }
+        if (hasFocus) enableImmersiveMode() else startLockTaskMode()
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        return when (keyCode) {
-            KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN -> true // Blokir tombol volume
-            else -> super.onKeyDown(keyCode, event)
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            setAudioToSpeaker()
+            return true // Blokir tombol volume
         }
-    }
-
-    private fun enableImmersiveMode() {
-        window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
-                        View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                        View.SYSTEM_UI_FLAG_FULLSCREEN or
-                        View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-                        View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                )
-    }
-
-    private fun showReturnToLockTaskDialog() {
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Exam Mode Active")
-            .setMessage("You cannot leave the exam mode. Returning...")
-            .setCancelable(false)
-            .setPositiveButton("OK") { _, _ ->
-                startLockTaskMode()
-            }
-            .create()
-        dialog.show()
-    }
-
-    private fun lockScreenshot(enable: Boolean) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-            if (enable) {
-                window.setFlags(
-                    WindowManager.LayoutParams.FLAG_SECURE,
-                    WindowManager.LayoutParams.FLAG_SECURE
-                )
-            } else {
-                window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-            }
-        }
-    }
-
-    private fun keepScreenOn() {
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        return super.onKeyDown(keyCode, event)
     }
 
     override fun onBackPressed() {
@@ -100,9 +69,7 @@ class MainActivity : FlutterActivity() {
                     lockScreenshot(false)
                     result.success(null)
                 }
-                else -> {
-                    result.notImplemented()
-                }
+                else -> result.notImplemented()
             }
         }
 
@@ -112,11 +79,46 @@ class MainActivity : FlutterActivity() {
                     setAudioToSpeaker()
                     result.success(null)
                 }
-                else -> {
-                    result.notImplemented()
-                }
+                else -> result.notImplemented()
             }
         }
+    }
+
+    private fun applyInitialSettings() {
+        keepScreenOn()
+        startLockTaskMode()
+        lockScreenshot(true)
+        enableImmersiveMode()
+        setAudioToSpeaker()
+    }
+
+    private fun registerVolumeObserver() {
+        contentResolver.registerContentObserver(
+            android.provider.Settings.System.CONTENT_URI,
+            true,
+            volumeObserver
+        )
+    }
+
+    private fun unregisterVolumeObserver() {
+        contentResolver.unregisterContentObserver(volumeObserver)
+    }
+
+    private fun enableImmersiveMode() {
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+    }
+
+    private fun lockScreenshot(enable: Boolean) {
+        val flag = WindowManager.LayoutParams.FLAG_SECURE
+        if (enable) window.setFlags(flag, flag) else window.clearFlags(flag)
+    }
+
+    private fun keepScreenOn() {
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
     private fun startLockTaskMode() {
@@ -138,19 +140,35 @@ class MainActivity : FlutterActivity() {
             }
         }
     }
-
     private fun setAudioToSpeaker() {
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        with(audioManager) {
+            // Paksa audio ke speaker
+            mode = AudioManager.MODE_IN_COMMUNICATION
+            isSpeakerphoneOn = true
 
-        audioManager.mode = AudioManager.MODE_NORMAL
-        audioManager.isSpeakerphoneOn = true
+            // Matikan volume jika earphone terhubung
+            if (isWiredHeadsetOn()) {
+                setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0)
+            }
 
-        if (audioManager.isBluetoothA2dpOn) {
-            audioManager.stopBluetoothSco()
-            audioManager.isBluetoothScoOn = false
+            // Matikan Bluetooth jika aktif
+            if (isBluetoothA2dpOn || isBluetoothScoOn) {
+                stopBluetoothSco()
+                isBluetoothScoOn = false
+                setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0)
+            }
+
+            // Atur volume maksimum untuk speaker
+            val maxVolume = getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            setStreamVolume(AudioManager.STREAM_MUSIC, maxVolume, 0)
         }
-
-        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxVolume, AudioManager.FLAG_SHOW_UI)
     }
+
+    // Helper untuk mendeteksi earphone kabel
+    private fun isWiredHeadsetOn(): Boolean {
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        return audioManager.isWiredHeadsetOn
+    }
+
 }

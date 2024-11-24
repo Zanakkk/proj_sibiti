@@ -32,7 +32,7 @@ class _HomePageState extends State<HomePage> {
 
     // API endpoint
     const String url =
-        'https://sibiti-smansa-prodlike.my.id/api/seb-exam/start';
+        'https://sibiti-smansa.my.id/api/seb-exam/start';
 
     try {
       final response = await http.post(
@@ -69,7 +69,7 @@ class _HomePageState extends State<HomePage> {
         elevation: 0,
         actions: const [
           Text(
-            'SEB v1.0.2',
+            'SEB v1.0.3',
             style: TextStyle(fontSize: 10),
             textAlign: TextAlign.center,
           ),

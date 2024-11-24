@@ -47,6 +47,7 @@ dependencies:
   flutter_widget_from_html_core: ^0.15.2
   audioplayers: ^6.1.0
   kiosk_mode: ^0.5.1
+  flutter_kiosk_mode: ^0.0.2
 
 dev_dependencies:
   flutter_test:
