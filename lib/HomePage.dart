@@ -69,7 +69,7 @@ class _HomePageState extends State<HomePage> {
         elevation: 0,
         actions: const [
           Text(
-            'SEB v1.0.3',
+            'SEB v1.0.4',
             style: TextStyle(fontSize: 10),
             textAlign: TextAlign.center,
           ),
