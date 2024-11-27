@@ -95,8 +95,21 @@ class _SafeExamPageState extends State<SafeExamPage>
         (state == AppLifecycleState.paused ||
             state == AppLifecycleState.inactive ||
             state == AppLifecycleState.detached)) {
+      // When the app goes into the background (paused, inactive, or detached)
       _playSound();
       _forceAppRestart();
+    }
+
+    if (state == AppLifecycleState.resumed) {
+      // When the app comes back to the foreground
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) => const HomePage(),  // Navigate to HomePage
+          ),
+              (Route<dynamic> route) => false, // Remove all previous routes from the stack
+        );
+      }
     }
   }
 
@@ -113,7 +126,7 @@ class _SafeExamPageState extends State<SafeExamPage>
   }
 
   Future<void> _showExitDialog(String exitCode) async {
-    const String apiUrl = 'https://sibiti-smansa.my.id/api/seb-exam/exit';
+    const String apiUrl = 'https://sibiti-smansa-prodlike.my.id/api/seb-exam/exit';
 
     setState(() {
       _isLoading = true;
@@ -154,7 +167,6 @@ class _SafeExamPageState extends State<SafeExamPage>
       });
     }
   }
-
 
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(

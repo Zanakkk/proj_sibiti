@@ -32,7 +32,7 @@ class _HomePageState extends State<HomePage> {
 
     // API endpoint
     const String url =
-        'https://sibiti-smansa.my.id/api/seb-exam/start';
+        'https://sibiti-smansa-prodlike.my.id/api/seb-exam/start';
 
     try {
       final response = await http.post(
@@ -54,7 +54,15 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       } else {
-        // You can show an error message if the API fails
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Kode Salah, Hubungi Administrator.',
+              style: TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red, // You can customize this
+          ),
+        );
       }
     } finally {
       setState(() {});
@@ -164,6 +172,7 @@ class _HomePageState extends State<HomePage> {
                             style: TextStyle(color: Colors.white)),
                       ),
                     ),
+
                   ],
                 )
               ],
